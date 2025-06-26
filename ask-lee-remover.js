@@ -1,9 +1,8 @@
 // ==UserScript==
-// @name         Ask Lee Remover & WIMs Sizing Fix (SPA Safe)
+// @name         Ask Lee Remover & WIMs Sizing Fix (Final)
 // @namespace    http://tampermonkey.net/
-// @version      1.4
-// @description  Removes Ask Lee widget, adjusts main content, and fixes card-padding row columns, even on WIMS SPA transitions
-// @author       @camrees
+// @version      1.6
+// @description  Removes Ask Lee widget on all pages, but adjusts layout only on taskdetail pages safely (SPA compatible)
 // @match        https://optimus-internal-eu.amazon.com/wims/*
 // @grant        none
 // ==/UserScript==
@@ -13,31 +12,27 @@
 
     let observer;
 
-    function applyFixes() {
-        console.log("[WIMS Fix] Checking page");
-
-        // only run on taskdetail
-        if (!window.location.pathname.includes('/wims/taskdetail/')) {
-            console.log("[WIMS Fix] Not on taskdetail page, skipping.");
-            return;
+    function removeAskLee() {
+        const askLeeIframe = document.querySelector('iframe.ask-lee-widget-container');
+        const askLeeDiv = document.querySelector('div.ask-lee-widget-container');
+        if (askLeeIframe) askLeeIframe.remove();
+        if (askLeeDiv) askLeeDiv.remove();
+        if (askLeeIframe || askLeeDiv) {
+            console.log("Removed ask-lee-widget-container");
         }
+    }
+
+    function fixTaskDetailLayout() {
+        console.log("[WIMS Fix] Applying task detail layout fixes");
 
         let widgetRemoved = false;
         let mainContentAdjusted = false;
         let cardRowAdjusted = false;
 
         function modifyPage(observer) {
-            // 1) remove ask-lee-widget-container
-            const askLeeIframe = document.querySelector('iframe.ask-lee-widget-container');
-            const askLeeDiv = document.querySelector('div.ask-lee-widget-container');
-            if ((askLeeIframe || askLeeDiv) && !widgetRemoved) {
-                if (askLeeIframe) askLeeIframe.remove();
-                if (askLeeDiv) askLeeDiv.remove();
-                console.log("Removed ask-lee-widget-container");
-                widgetRemoved = true;
-            }
+            removeAskLee();
 
-            // 2) adjust card-padding row children
+            // 1) adjust card-padding row children
             const cardRows = document.querySelectorAll('div.card-padding.row');
             for (const candidate of cardRows) {
                 const children = candidate.querySelectorAll(':scope > div.col-lg-8.col-md-6');
@@ -50,7 +45,7 @@
                 }
             }
 
-            // 3) adjust main-content-column-small
+            // 2) adjust main-content-column-small
             const mainContentDiv = document.querySelector('div.main-content-column-small');
             if (mainContentDiv && !mainContentAdjusted) {
                 mainContentDiv.classList.remove('main-content-column-small');
@@ -58,7 +53,7 @@
                 console.log("Adjusted main-content-column-small to main-content");
             }
 
-            // 4) remove .row class from first plain row div (not card-padding)
+            // 3) remove .row class from first plain row div (not card-padding)
             const plainRow = document.querySelector('div.row:not(.card-padding)');
             if (plainRow && !mainContentAdjusted) {
                 plainRow.classList.remove('row');
@@ -66,9 +61,9 @@
                 mainContentAdjusted = true;
             }
 
-            if (widgetRemoved && mainContentAdjusted && cardRowAdjusted && observer) {
+            if (cardRowAdjusted && mainContentAdjusted && observer) {
                 observer.disconnect();
-                console.log("All tasks complete, observer disconnected.");
+                console.log("All layout fixes done, observer disconnected");
             }
         }
 
@@ -82,18 +77,36 @@
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
-    // run on first load
-    applyFixes();
+    function onUrlChange() {
+        console.log("[WIMS Fix] URL change detected:", location.pathname);
 
-    // monitor URL changes for SPA
+        // always remove Ask Lee, safe everywhere
+        removeAskLee();
+
+        if (observer) {
+            observer.disconnect();
+            observer = null;
+        }
+
+        if (location.pathname.includes('/wims/taskdetail/')) {
+            fixTaskDetailLayout();
+        }
+    }
+
+    // monitor SPA navigation
     let lastUrl = location.href;
     new MutationObserver(() => {
         const currentUrl = location.href;
         if (currentUrl !== lastUrl) {
             lastUrl = currentUrl;
-            console.log("[WIMS Fix] URL changed to", currentUrl);
-            applyFixes();
+            onUrlChange();
         }
     }).observe(document.body, { childList: true, subtree: true });
+
+    // initial run
+    removeAskLee();
+    if (location.pathname.includes('/wims/taskdetail/')) {
+        fixTaskDetailLayout();
+    }
 
 })();
