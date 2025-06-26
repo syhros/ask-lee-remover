@@ -38,3 +38,42 @@
     main();
 
 })()
+
+
+
+    function getAssignButton() {
+        return getElement(document, "//button[text()='Assign to me']");
+    };
+
+const handleAssignAndOpenReply = async () => {
+        let assignButton = getAssignButton();
+        if (assignButton && assignButton.textContent === "Assign to me") {
+            assignButton.click();
+        }
+
+        let replyToCase = getReplyToCase();
+        if (replyToCase) {
+            replyToCase.focus();
+        }
+    };
+
+const operation = async () => {
+                await handleAssignAndOpenReply();
+                getReplyButton().click();
+
+ // Function to populate fields
+    function populateFields(subjectLine, subcategory, topic, blurbName) {
+        // Get page elements
+        const assignButton = getAssignButton();
+        const addSubject = getAddSubject();
+        const replyToCase = getReplyToCase();
+        const replyTextBox = getReplyTextbox();
+        let category = getCategory();
+        const followUpButton = getFollowUpButton();
+        const followUpDatetime = getFollowUpDatetime();
+        const addCcContact = getAddCcContact();
+
+        // Wait for and click the "Assign to me" button
+        if (assignButton && assignButton.textContent === "Assign to me") {
+            assignButton.click();
+        }
