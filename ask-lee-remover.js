@@ -4,7 +4,7 @@
 // @version      1.0
 // @description  Removes Ask Lee widget, adjusts main content, and fixes card-padding row columns
 // @author       @camrees
-// @match        https://optimus-internal-eu.amazon.com/*
+// @match        https://optimus-internal-eu.amazon.com/wims/taskdetail/*
 // @grant        none
 // ==/UserScript==
 
@@ -28,9 +28,11 @@
 
         // Adjust main-content-column-small
         const mainContentDiv = document.querySelector('div.main-content-column-small');
+        const mainContentRow = document.querySelector('div.row');
         if (mainContentDiv && !mainContentAdjusted) {
             mainContentDiv.classList.remove('main-content-column-small');
             mainContentDiv.classList.add('main-content');
+            mainContentRow.classList.remove('row');
             console.log("Adjusted main-content-column-small to main-content");
             mainContentAdjusted = true;
         }
