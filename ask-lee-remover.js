@@ -3,8 +3,8 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.1
 // @description  Hides Ask Lee widget and adjusts task page layout for better viewing.
-// @author       Your Name
-// @match        https://your-task-details-page.com/* // IMPORTANT: Change this to your actual task page URL(s)!
+// @author       @camrees
+// @match        https://optimus-internal-eu.amazon.com/*
 // @grant        GM_addStyle
 // ==/UserScript==
 
@@ -47,34 +47,13 @@
 
         // --- Adjust card-padding row children classes ---
         if (!cardRowAdjusted) {
-            const cardRow = document.querySelector('.card-padding.row');
-            if (cardRow) {
-                const children = cardRow.children;
-                // Ensure there are at least two children to modify
+            const cardRows = document.querySelectorAll('div.card-padding.row');
+            for (const candidate of cardRows) {
+                const children = candidate.querySelectorAll(':scope > div.col-lg-8.col-md-6');
                 if (children.length >= 2) {
-                    const firstColumn = children[0];
-                    const secondColumn = children[1];
-
-                    // Remove existing Bootstrap column classes from the first child
-                    firstColumn.classList.forEach(cls => {
-                        if (cls.startsWith('col-')) {
-                            firstColumn.classList.remove(cls);
-                        }
-                    });
-                    // Add the desired classes for the first child
-                    firstColumn.classList.add('col-lg-8', 'col-md-8');
-                    console.log("[WIMS Fix] Adjusted first column in card-padding row to col-lg-8 col-md-8.");
-
-                    // Remove existing Bootstrap column classes from the second child
-                    secondColumn.classList.forEach(cls => {
-                        if (cls.startsWith('col-')) {
-                            secondColumn.classList.remove(cls);
-                        }
-                    });
-                    // Add the desired classes for the second child
-                    secondColumn.classList.add('col-lg-4', 'col-md-4');
-                    console.log("[WIMS Fix] Adjusted second column in card-padding row to col-lg-4 col-md-4.");
-
+                    children[0].className = 'col-lg-8 col-md-8';
+                    children[1].className = 'col-lg-4 col-md-4';
+                    console.log("Adjusted children in the correct cardRow");
                     cardRowAdjusted = true;
                 } else {
                     console.log("[WIMS Fix] Not enough children in '.card-padding.row' for column adjustment.");
