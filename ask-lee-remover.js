@@ -1,130 +1,144 @@
 // ==UserScript==
-// @name         Ask Lee Remover & WIMs Sizing Fix (clone & apply on task details)
+// @name         WIMS Task Page Layout Fixer
 // @namespace    http://tampermonkey.net/
-// @version      1.8
-// @description  Duplicate task-details-page, fix layout on duplicate only, remove duplicate on SPA URL change
-// @match        https://optimus-internal-eu.amazon.com/wims/*
-// @grant        none
+// @version      1.1
+// @description  Hides Ask Lee widget and adjusts task page layout for better viewing.
+// @author       Your Name
+// @match        https://your-task-details-page.com/* // IMPORTANT: Change this to your actual task page URL(s)!
+// @grant        GM_addStyle
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    let observer;
-    let duplicatePage = null;
-    let lastPathname = location.pathname;
+    // --- State Variables to track completed fixes ---
+    let widgetHidden = false;
+    let mainContentAdjusted = false;
+    let cardRowAdjusted = false;
+    let observer; // Will store our MutationObserver instance
 
-    // Remove Ask Lee iframe/div globally (original page and duplicate)
-    function removeAskLee(root = document) {
-        const askLeeIframe = root.querySelector('iframe.ask-lee-widget-container');
-        const askLeeDiv = root.querySelector('div.ask-lee-widget-container');
-        if (askLeeIframe) askLeeIframe.remove();
-        if (askLeeDiv) askLeeDiv.remove();
-        if (askLeeIframe || askLeeDiv) {
-            console.log("Removed ask-lee-widget-container");
+    /**
+     * Hides the 'Ask Lee' widget immediately using CSS injection.
+     * This method is fast and prevents initial flickering.
+     */
+    function hideAskLeeWidget() {
+        if (!widgetHidden) {
+            GM_addStyle('.ask-lee-widget-container { display: none !important; }');
+            widgetHidden = true;
+            console.log("[WIMS Fix] Ask Lee widget hidden via GM_addStyle.");
         }
     }
 
-    // Apply your layout fixes ONLY on a given root element (the duplicate)
-    function applyLayoutFixes(root) {
-        console.log("[WIMS Fix] Applying layout changes to duplicate");
-
-        const cardRows = root.querySelectorAll('div.card-padding.row');
-        for (const candidate of cardRows) {
-            const children = candidate.querySelectorAll(':scope > div.col-lg-8.col-md-6');
-            if (children.length >= 2) {
-                children[0].className = 'col-lg-8 col-md-8';
-                children[1].className = 'col-lg-4 col-md-4';
-                console.log("Adjusted cardRow columns");
+    /**
+     * Applies layout adjustments to the main content and card row sections.
+     * This function is designed to be called multiple times until all fixes are applied.
+     */
+    function applyLayoutFixes() {
+        // --- Adjust main content column class ---
+        if (!mainContentAdjusted) {
+            const mainContentDiv = document.querySelector('div.main-content-column-small');
+            if (mainContentDiv) {
+                mainContentDiv.classList.remove('main-content-column-small');
+                mainContentDiv.classList.add('main-content');
+                mainContentAdjusted = true;
+                console.log("[WIMS Fix] Changed 'main-content-column-small' to 'main-content'.");
             }
         }
 
-        const mainContentDiv = root.querySelector('div.main-content-column-small');
-        if (mainContentDiv) {
-            mainContentDiv.classList.remove('main-content-column-small');
-            mainContentDiv.classList.add('main-content');
-            console.log("Adjusted main-content-column-small to main-content");
+        // --- Adjust card-padding row children classes ---
+        if (!cardRowAdjusted) {
+            const cardRow = document.querySelector('.card-padding.row');
+            if (cardRow) {
+                const children = cardRow.children;
+                // Ensure there are at least two children to modify
+                if (children.length >= 2) {
+                    const firstColumn = children[0];
+                    const secondColumn = children[1];
+
+                    // Remove existing Bootstrap column classes from the first child
+                    firstColumn.classList.forEach(cls => {
+                        if (cls.startsWith('col-')) {
+                            firstColumn.classList.remove(cls);
+                        }
+                    });
+                    // Add the desired classes for the first child
+                    firstColumn.classList.add('col-lg-8', 'col-md-8');
+                    console.log("[WIMS Fix] Adjusted first column in card-padding row to col-lg-8 col-md-8.");
+
+                    // Remove existing Bootstrap column classes from the second child
+                    secondColumn.classList.forEach(cls => {
+                        if (cls.startsWith('col-')) {
+                            secondColumn.classList.remove(cls);
+                        }
+                    });
+                    // Add the desired classes for the second child
+                    secondColumn.classList.add('col-lg-4', 'col-md-4');
+                    console.log("[WIMS Fix] Adjusted second column in card-padding row to col-lg-4 col-md-4.");
+
+                    cardRowAdjusted = true;
+                } else {
+                    console.log("[WIMS Fix] Not enough children in '.card-padding.row' for column adjustment.");
+                }
+            }
         }
 
-        const plainRow = root.querySelector('div.row:not(.card-padding)');
-        if (plainRow) {
-            plainRow.classList.remove('row');
-            console.log("Removed row class from plain row");
-        }
-    }
-
-    // Clone and fix the task details page
-    function cloneAndFixTaskDetails() {
-        const original = document.querySelector('.task-details-page');
-        if (!original || duplicatePage) return;
-
-        // Clone the whole task details container deeply
-        duplicatePage = original.cloneNode(true);
-        duplicatePage.id = 'task-details-page-duplicate';
-
-        // Insert the duplicate after the original or somewhere suitable
-        original.style.display = 'none';  // optionally hide original
-        original.parentNode.insertBefore(duplicatePage, original.nextSibling);
-
-        removeAskLee(duplicatePage);
-        applyLayoutFixes(duplicatePage);
-
-        console.log("[WIMS Fix] Cloned and fixed task details page");
-    }
-
-    // Remove duplicate and show original again
-    function removeDuplicate() {
-        if (duplicatePage) {
-            duplicatePage.remove();
-            duplicatePage = null;
-
-            const original = document.querySelector('.task-details-page');
-            if (original) original.style.display = ''; // show original
-
-            console.log("[WIMS Fix] Removed duplicate and restored original");
+        // Check if all primary layout fixes are applied
+        if (mainContentAdjusted && cardRowAdjusted) {
+            console.log("[WIMS Fix] All primary layout adjustments applied.");
         }
     }
 
-    // Check URL and toggle duplicate accordingly
-    function checkUrlAndToggle() {
-        const isTaskDetail = /^\/wims\/taskdetails\/.*/.test(location.pathname);
+    /**
+     * Monitors for the 'Assign to me' button and re-applies fixes when clicked,
+     * as page content might shift or re-render.
+     */
+    function monitorAssignButton() {
+        const assignButton = document.querySelector('button[data-testid="assign-to-me-button"]');
+        if (assignButton && !assignButton.hasAttribute('data-wims-fix-listener')) {
+            // Add a custom attribute to prevent adding multiple listeners
+            assignButton.setAttribute('data-wims-fix-listener', 'true');
+            console.log("[WIMS Fix] Found Assign button, attaching listener.");
 
-        if (isTaskDetail) {
-            cloneAndFixTaskDetails();
-        } else {
-            removeDuplicate();
+            assignButton.addEventListener('click', () => {
+                console.log("[WIMS Fix] Assign button clicked, re-applying layout fixes after short delay...");
+                // Use setTimeout to allow the page to re-render after the click action
+                setTimeout(applyLayoutFixes, 500);
+            });
         }
     }
 
-    // Hook into history API to detect SPA navigation changes
-    function hookHistoryEvents() {
-        const pushState = history.pushState;
-        history.pushState = function() {
-            pushState.apply(this, arguments);
-            setTimeout(checkUrlAndToggle, 100);
-        };
+    /**
+     * Main observer function to watch for changes in the DOM,
+     * specifically looking for the '.task-details-page' to trigger layout fixes.
+     */
+    function observeTaskPage() {
+        observer = new MutationObserver((mutationsList, currentObserver) => {
+            // Ensure the widget is hidden regardless of other conditions
+            hideAskLeeWidget();
 
-        const replaceState = history.replaceState;
-        history.replaceState = function() {
-            replaceState.apply(this, arguments);
-            setTimeout(checkUrlAndToggle, 100);
-        };
+            // Only proceed with layout fixes if we are on a task details page
+            const taskDetail = document.querySelector('.task-details-page');
+            if (taskDetail) {
+                applyLayoutFixes(); // Attempt to apply fixes
+                monitorAssignButton(); // Monitor for the assign button
 
-        window.addEventListener('popstate', () => {
-            setTimeout(checkUrlAndToggle, 100);
+                // If all the necessary fixes are applied, disconnect the observer
+                if (widgetHidden && mainContentAdjusted && cardRowAdjusted) {
+                    currentObserver.disconnect();
+                    console.log("[WIMS Fix] All fixes applied and verified, observer disconnected.");
+                }
+            }
         });
+
+        // Start observing the entire body for child list changes and subtree modifications
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
-    // Initial cleanup
-    removeAskLee();
-    checkUrlAndToggle();
-    hookHistoryEvents();
+    // --- Script Initialization ---
+    // Hide the Ask Lee widget as early as possible
+    hideAskLeeWidget();
 
-    // Also observe DOM in case page loads or changes late
-    observer = new MutationObserver(() => {
-        removeAskLee();
-        checkUrlAndToggle();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    // Start observing for page content changes, especially for task detail pages
+    observeTaskPage();
 
 })();
