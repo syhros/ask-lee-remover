@@ -1,0 +1,40 @@
+// Function to check and print the container only in the task details page
+    function checkUrlAndAdjustContainer() {
+        const taskDetailPage = document.querySelector('.task-details-page');
+
+        // Append container to the task page
+        if (taskDetailPage && !container) {
+            container = createContainer();
+            document.body.appendChild(container);
+        // Remove container when not in a task
+        } else if (!taskDetailPage && container) {
+            container.remove();
+            container = null;
+        }
+    };
+    // END OPERATIVE FUNCTIONS
+
+    // MAIN PROCEDURE
+    function main() {
+        // Delay the initial check by one second to give the page time to load and render
+        setTimeout(() => {
+            // Check the page and adjust the container after the delay
+            checkUrlAndAdjustContainer();
+
+            // Subpage where cases appear
+            const iopContent = getIopContent();
+
+            // If the subpage is present, set up the MutationObserver
+            if (iopContent) {
+                // Observe changes to the subpage and adjust the container accordingly
+                observer = new MutationObserver(checkUrlAndAdjustContainer);
+                observer.observe(iopContent, { childList: true, subtree: true });
+            }
+        }, 1000); // One second delay
+    };
+    // END MAIN PROCEDURE
+
+    // Run script
+    main();
+
+})()
