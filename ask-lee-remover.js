@@ -1,143 +1,134 @@
 // ==UserScript==
 // @name         WIMS Task Page Layout Fixer
 // @namespace    http://tampermonkey.net/
-// @version      1.8
-// @description  Hides Ask Lee, adjusts layout on task detail pages, and re-applies fixes on dynamic updates.
-// @author       @camrees (updated by Gemini)
-// @match        https://optimus-internal-eu.amazon.com/wims/taskdetail/*
-// @match        https://optimus-internal-eu.amazon.com/wims
+// @version      1.7 // Increment version for this fix
+// @description  Hides Ask Lee widget and adjusts task page layout for better viewing.
+// @author       @camrees
+// @match        https://optimus-internal-eu.amazon.com/*
 // @grant        GM_addStyle
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    // State flags to track when an adjustment has been successfully applied.
+    // State flags to track completed adjustments
     let widgetHidden = false;
     let mainContentAdjusted = false;
     let cardRowAdjusted = false;
-    let exclusiveRowAdjusted = false;
-
+    let firstRowAdjusted = false;
     let observer;
     let lastUrl = location.href;
-    let retryTimeoutId; // Manages the retry timeout to prevent multiple loops
+    let retryTimeoutId; // Variable to manage retry timeouts
 
-    /**
-     * A helper function to remove any existing column classes (e.g., 'col-lg-6') from an element.
-     * This prevents class conflicts when adding new ones.
-     * @param {Element} element The DOM element to clean.
-     */
+    // A helper function to remove any existing column classes
     function removeColClasses(element) {
         if (element) {
-            const classesToRemove = Array.from(element.classList).filter(cls => cls.startsWith('col-'));
-            element.classList.remove(...classesToRemove);
-        }
-    }
-
-    /**
-     * Resets all state flags. This is crucial for SPAs (Single Page Applications)
-     * where navigating or performing an action doesn't trigger a full page reload.
-     */
-    function resetFixes() {
-        mainContentAdjusted = false;
-        cardRowAdjusted = false;
-        exclusiveRowAdjusted = false;
-        if (retryTimeoutId) {
-            clearTimeout(retryTimeoutId);
-            retryTimeoutId = null;
-        }
-        console.log("[WIMS Fix] Flags have been reset to re-apply fixes.");
-    }
-
-    /**
-     * Hides the 'Ask Lee' widget using a CSS rule injected by Tampermonkey.
-     * This is more efficient than repeatedly searching for and hiding the element.
-     */
-    function hideAskLeeWidget() {
-        if (!widgetHidden) {
-            GM_addStyle('.ask-lee-widget-container { display: none !important; }');
-            widgetHidden = true;
-            console.log("[WIMS Fix] Ask Lee widget has been hidden.");
-        }
-    }
-
-    /**
-     * Monitors for the 'Assign to me' button and attaches a one-time click listener
-     * to re-apply fixes after the page content re-renders.
-     */
-    function monitorAssignButton() {
-        const assignButton = document.querySelector('button[data-testid="assign-to-me-button"]');
-
-        // Check if the button exists and doesn't already have our listener.
-        if (assignButton && !assignButton.hasAttribute('data-wims-fix-listener')) {
-            assignButton.setAttribute('data-wims-fix-listener', 'true'); // Mark as handled
-            console.log("[WIMS Fix] 'Assign to me' button found, attaching click listener.");
-
-            assignButton.addEventListener('click', () => {
-                console.log("[WIMS Fix] 'Assign to me' button clicked. Resetting and re-applying fixes after a delay.");
-                // Reset flags so the script knows to run the fixes again.
-                resetFixes();
-                // Wait for the SPA framework to re-render the DOM before applying fixes.
-                setTimeout(applyLayoutFixes, 500);
+            // Iterate over a copy of classList to safely remove classes during iteration
+            Array.from(element.classList).forEach(cls => {
+                if (cls.startsWith('col-')) {
+                    element.classList.remove(cls);
+                }
             });
         }
     }
 
-    /**
-     * The core function that attempts to apply all necessary layout adjustments to the page.
-     * It checks flags to ensure it doesn't re-apply fixes unnecessarily.
-     */
+    // Resets all flags, useful when navigating between pages
+    function resetFixes() {
+        widgetHidden = false;
+        mainContentAdjusted = false;
+        cardRowAdjusted = false;
+        firstRowAdjusted = false;
+        // Clear any pending retry timeout when resetting fixes
+        if (retryTimeoutId) {
+            clearTimeout(retryTimeoutId);
+            retryTimeoutId = null;
+        }
+        console.log("[WIMS Fix] Resetting flags.");
+    }
+
+    // Hides the 'Ask Lee' widget using a persistent CSS rule
+    function hideAskLeeWidget() {
+        if (!widgetHidden) {
+            GM_addStyle('.ask-lee-widget-container { display: none !important; }');
+            widgetHidden = true;
+            console.log("[WIMS Fix] Ask Lee widget hidden.");
+        }
+    }
+
+    // Attempts to apply all layout adjustments
     function applyLayoutFixes() {
-        // ---- FIX 1: Adjust the main content column class ----
+        // Adjust the main content column class
         if (!mainContentAdjusted) {
             const mainContentDiv = document.querySelector('div.main-content-column-small');
             if (mainContentDiv) {
                 mainContentDiv.classList.remove('main-content-column-small');
                 mainContentDiv.classList.add('main-content');
                 mainContentAdjusted = true;
-                console.log("[WIMS Fix] Main content column class adjusted.");
+                console.log("[WIMS Fix] Main content class adjusted.");
             }
         }
 
-        // ---- FIX 2: Find a div with ONLY the class 'row' and rename it ----
-        if (!exclusiveRowAdjusted) {
-            const exclusiveRow = document.querySelector('div[class="row"]');
-            if (exclusiveRow) {
-                exclusiveRow.classList.remove('row');
-                exclusiveRow.classList.add('row-null');
-                exclusiveRowAdjusted = true;
-                console.log("[WIMS Fix] Found exclusive 'div.row' and changed its class to 'row-null'.");
-            }
-        }
-
-        // ---- FIX 3: Adjust children of the 'card-padding row' div ----
+        // Adjust the first 'div.row' found that is not a 'card-padding' row
         if (!cardRowAdjusted) {
-            const cardRow = document.querySelector('div.card-padding.row');
-            if (cardRow) {
-                const children = cardRow.querySelectorAll(':scope > div');
+            const cardRows = document.querySelectorAll('div.card-padding.row');
+            let foundSuitableCardRowAndChildren = false; // Flag for this specific loop
+            for (const candidate of cardRows) {
+                // Selects ALL direct div children, regardless of their current classes
+                const children = candidate.querySelectorAll(':scope > div');
                 if (children.length >= 2) {
                     const firstColumn = children[0];
                     const secondColumn = children[1];
+
+                    // Safely remove existing col- classes and add desired ones
                     removeColClasses(firstColumn);
                     firstColumn.classList.add('col-lg-8', 'col-md-8');
+
                     removeColClasses(secondColumn);
                     secondColumn.classList.add('col-lg-4', 'col-md-4');
-                    cardRowAdjusted = true;
-                    console.log("[WIMS Fix] Resized the two columns inside '.card-padding.row'.");
+
+                    cardRowAdjusted = true; // Set the main flag once fixed
+                    foundSuitableCardRowAndChildren = true; // Indicate success within this loop
+                    console.log("[WIMS Fix] Card-padding row children adjusted.");
+                    break; // Assuming only one such row needs fixing
                 }
+            }
+            if (!foundSuitableCardRowAndChildren) {
+                console.log("[WIMS Fix DEBUG] 'card-padding.row' or its suitable children not found yet.");
             }
         }
 
-        if (mainContentAdjusted && cardRowAdjusted && exclusiveRowAdjusted) {
-            console.log("[WIMS Fix] All layout adjustments have been successfully applied for this view.");
+        // Adjust the first 'div.row' that is not a 'card-padding' row
+        if (!firstRowAdjusted) {
+            const firstRowDiv = document.querySelector('div.row:not(.card-padding)');
+            if (firstRowDiv) {
+                firstRowDiv.classList.remove('row');
+                firstRowDiv.classList.add('row-null');
+                firstRowAdjusted = true;
+                console.log("[WIMS Fix] First 'div.row' adjusted.");
+            }
+        }
+        
+        // Log when all primary adjustments are complete
+        if (mainContentAdjusted && cardRowAdjusted && firstRowAdjusted) {
+            console.log("[WIMS Fix] All primary adjustments applied.");
         }
     }
 
-    /**
-     * Sets up the MutationObserver to watch for changes in the document.
-     * This is the engine that makes the script work on dynamic pages.
-     */
-    function initializeObserver() {
+    // Monitors for the 'Assign to me' button to handle page re-renders
+    function monitorAssignButton() {
+        const assignButton = document.querySelector('button[data-testid="assign-to-me-button"]');
+        if (assignButton && !assignButton.hasAttribute('data-wims-fix-listener')) {
+            assignButton.setAttribute('data-wims-fix-listener', 'true');
+            console.log("[WIMS Fix] Assign button found, attaching listener.");
+            assignButton.addEventListener('click', () => {
+                console.log("[WIMS Fix] Assign button clicked, re-applying fixes.");
+                setTimeout(applyLayoutFixes, 500);
+            });
+        }
+    }
+
+    // Main observer that watches for DOM and URL changes
+    function observeTaskPage() {
         observer = new MutationObserver((mutationsList, currentObserver) => {
             if (location.href !== lastUrl) {
                 console.log("[WIMS Fix] URL changed, re-initializing.");
@@ -147,36 +138,51 @@
 
             hideAskLeeWidget();
 
-            // Only run the main fixes if we are on a task detail page.
-            if (location.pathname.includes('/wims/taskdetail')) {
-                // Attempt to apply fixes and monitor the button.
-                applyLayoutFixes();
+            const taskDetail = document.querySelector('.task-details-page');
+            if (taskDetail) {
+                applyLayoutFixes(); // Initial attempt to apply fixes
                 monitorAssignButton();
 
-                const allDone = widgetHidden && mainContentAdjusted && cardRowAdjusted && exclusiveRowAdjusted;
-                if (!allDone) {
-                    if (retryTimeoutId) { clearTimeout(retryTimeoutId); }
+                // If not all fixes are applied, schedule a retry.
+                // This ensures fixes are applied even if elements load asynchronously.
+                if (!(widgetHidden && mainContentAdjusted && cardRowAdjusted && firstRowAdjusted)) {
+                    if (retryTimeoutId) { // Clear existing timeout to prevent multiple concurrent retries
+                        clearTimeout(retryTimeoutId);
+                    }
                     retryTimeoutId = setTimeout(() => {
-                        console.log("[WIMS Fix] Retrying fixes after a short delay...");
-                        applyLayoutFixes();
-                        retryTimeoutId = null;
-                    }, 200);
+                        // Re-check if still on task details page before retrying
+                        if (document.querySelector('.task-details-page')) {
+                            applyLayoutFixes();
+                            console.log("[WIMS Fix] Retrying applyLayoutFixes after delay.");
+                        }
+                    }, 100); // Small delay (100ms) to allow page to render more elements
+                }
+            } else {
+                // If not on task details page, reset flags if adjustments were made
+                if (mainContentAdjusted || cardRowAdjusted || firstRowAdjusted) {
+                    console.log("[WIMS Fix] Not on task details page, flags reset.");
+                    resetFixes();
+                }
+            }
+
+            // Disconnect observer once all fixes are confirmed to save resources
+            if (widgetHidden && mainContentAdjusted && cardRowAdjusted && firstRowAdjusted) {
+                currentObserver.disconnect();
+                console.log("[WIMS Fix] All fixes applied, observer disconnected.");
+                // Ensure no more retries after disconnecting
+                if (retryTimeoutId) {
+                    clearTimeout(retryTimeoutId);
+                    retryTimeoutId = null;
                 }
             }
         });
 
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-        console.log("[WIMS Fix] Observer started.");
+        // Observe the entire body for all DOM changes
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
-    // --- SCRIPT START ---
-    // Run initial fixes and start the observer.
-    initializeObserver();
-    // A final check on load
-    if (location.pathname.includes('/wims/taskdetail')) {
-        applyLayoutFixes();
-    }
+    // Script start
+    hideAskLeeWidget();
+    observeTaskPage();
+
 })();
