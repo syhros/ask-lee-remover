@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WIMS Task Page Layout Fixer
 // @namespace    http://tampermonkey.net/
-// @version      1.7 // Updated version for increased retry delay and debug logs
+// @version      1.8 // Updated version for delayed observer disconnect
 // @description  Hides Ask Lee widget and adjusts task page layout for better viewing.
 // @author       @camrees
 // @match        https://optimus-internal-eu.amazon.com/*
@@ -18,7 +18,8 @@
     let firstRowAdjusted = false;
     let observer;
     let lastUrl = location.href;
-    let retryTimeoutId; // Variable to manage retry timeouts
+    let retryTimeoutId; // Variable to manage retry timeouts for applyLayoutFixes
+    let disconnectTimeoutId; // Variable to manage delayed observer disconnect
 
     // A helper function to remove any existing column classes
     function removeColClasses(element) {
@@ -42,6 +43,11 @@
         if (retryTimeoutId) {
             clearTimeout(retryTimeoutId);
             retryTimeoutId = null;
+        }
+        // Clear any pending delayed disconnect timeout when resetting fixes
+        if (disconnectTimeoutId) {
+            clearTimeout(disconnectTimeoutId);
+            disconnectTimeoutId = null;
         }
         console.log("[WIMS Fix] Resetting flags.");
     }
@@ -150,7 +156,7 @@
                 // If not all fixes are applied, schedule a retry.
                 // This ensures fixes are applied even if elements load asynchronously.
                 if (!(widgetHidden && mainContentAdjusted && cardRowAdjusted && firstRowAdjusted)) {
-                    if (retryTimeoutId) { // Clear existing timeout to prevent multiple concurrent retries
+                    if (retryTimeoutId) { // Clear existing retry timeout to prevent multiple concurrent retries
                         clearTimeout(retryTimeoutId);
                     }
                     retryTimeoutId = setTimeout(() => {
@@ -159,7 +165,7 @@
                             applyLayoutFixes();
                             console.log("[WIMS Fix] Retrying applyLayoutFixes after delay.");
                         }
-                    }, 300); // Increased delay to 300ms
+                    }, 300); // Increased delay to 300ms for retries
                 }
             } else {
                 // If not on task details page, reset flags if adjustments were made
@@ -169,14 +175,27 @@
                 }
             }
 
-            // Disconnect observer once all fixes are confirmed to save resources
+            // Disconnect observer after a delay once all fixes are confirmed to save resources
             if (widgetHidden && mainContentAdjusted && cardRowAdjusted && firstRowAdjusted) {
-                currentObserver.disconnect();
-                console.log("[WIMS Fix] All fixes applied, observer disconnected.");
-                // Ensure no more retries after disconnecting
-                if (retryTimeoutId) {
-                    clearTimeout(retryTimeoutId);
-                    retryTimeoutId = null;
+                if (!disconnectTimeoutId) { // Only schedule if not already scheduled
+                    console.log("[WIMS Fix] All primary adjustments applied. Scheduling observer disconnect in 3 seconds.");
+                    disconnectTimeoutId = setTimeout(() => {
+                        currentObserver.disconnect();
+                        console.log("[WIMS Fix] Observer disconnected after 3-second delay.");
+                        // Ensure no more retries after disconnecting
+                        if (retryTimeoutId) {
+                            clearTimeout(retryTimeoutId);
+                            retryTimeoutId = null;
+                        }
+                        disconnectTimeoutId = null; // Clear this timeout ID too
+                    }, 3000); // 3 seconds delay
+                }
+            } else {
+                // If not all fixes are applied, ensure any pending delayed disconnect is cleared
+                if (disconnectTimeoutId) {
+                    clearTimeout(disconnectTimeoutId);
+                    disconnectTimeoutId = null;
+                    console.log("[WIMS Fix DEBUG] Resetting delayed disconnect timeout as fixes are incomplete.");
                 }
             }
         });
