@@ -69,17 +69,6 @@
         }
 
         // Adjust the first 'div.row' found that is not a 'card-padding' row
-        if (!firstRowAdjusted) {
-            const firstRowDiv = document.querySelector('div.row:not(.card-padding)');
-            if (firstRowDiv) {
-                firstRowDiv.classList.remove('row');
-                firstRowDiv.classList.add('row-null');
-                firstRowAdjusted = true;
-                console.log("[WIMS Fix] First 'div.row' adjusted.");
-            }
-        }
-
-        // Adjust the children of the 'card-padding row'
         if (!cardRowAdjusted) {
             const cardRows = document.querySelectorAll('div.card-padding.row');
             let foundSuitableCardRowAndChildren = false; // Flag for this specific loop
@@ -97,16 +86,15 @@
                     removeColClasses(secondColumn);
                     secondColumn.classList.add('col-lg-4', 'col-md-4');
 
-                    console.log("[WIMS Fix] Card-padding row children adjusted.");
                     cardRowAdjusted = true; // Set the main flag once fixed
                     foundSuitableCardRowAndChildren = true; // Indicate success within this loop
+                    console.log("[WIMS Fix] Card-padding row children adjusted.");
                     break; // Assuming only one such row needs fixing
                 }
             }
-            // Optional: You can remove this console.log if you don't need debug messages when not found
-            // if (!foundSuitableCardRowAndChildren) {
-            //     console.log("[WIMS Fix] DEBUG: Card-padding row or its children not found (yet).");
-            // }
+            if (!foundSuitableCardRowAndChildren) {
+                console.log("[WIMS Fix DEBUG] 'card-padding.row' or its suitable children not found yet.");
+            }
         }
 
         // Log when all primary adjustments are complete
