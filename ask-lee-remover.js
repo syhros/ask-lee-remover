@@ -80,16 +80,13 @@
 
         // Adjust the children of the 'card-padding row'
         if (!cardRowAdjusted) {
-            const cardRow = document.querySelector('div.card-padding.row');
-            if (cardRow) {
-                const children = cardRow.querySelectorAll(':scope > div');
+            const cardRows = document.querySelectorAll('div.card-padding.row');
+            for (const candidate of cardRows) {
+                const children = candidate.querySelectorAll(':scope > div.col-lg-8.col-md-6');
                 if (children.length >= 2) {
-                    removeColClasses(children[0]);
-                    children[0].classList.add('col-lg-8', 'col-md-8');
-
-                    removeColClasses(children[1]);
-                    children[1].classList.add('col-lg-4', 'col-md-4');
-
+                    children[0].className = 'col-lg-8 col-md-8';
+                    children[1].className = 'col-lg-4 col-md-4';
+                    console.log("Adjusted children in the correct cardRow");
                     cardRowAdjusted = true;
                     console.log("[WIMS Fix] Card-padding row children adjusted.");
                 }
