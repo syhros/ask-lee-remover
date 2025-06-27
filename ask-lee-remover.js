@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WIMS Task Page Layout Fixer
 // @namespace    http://tampermonkey.net/
-// @version      1.5 // Updated version
+// @version      1.6 // Increment version for this fix
 // @description  Hides Ask Lee widget and adjusts task page layout for better viewing.
 // @author       @camrees
 // @match        https://optimus-internal-eu.amazon.com/*
@@ -18,12 +18,13 @@
     let firstRowAdjusted = false;
     let observer;
     let lastUrl = location.href;
-    let retryTimeoutId; // New variable to manage retry timeouts
+    let retryTimeoutId; // Variable to manage retry timeouts
 
     // A helper function to remove any existing column classes
     function removeColClasses(element) {
         if (element) {
-            element.classList.forEach(cls => {
+            // Iterate over a copy of classList to safely remove classes during iteration
+            Array.from(element.classList).forEach(cls => {
                 if (cls.startsWith('col-')) {
                     element.classList.remove(cls);
                 }
@@ -81,16 +82,31 @@
         // Adjust the children of the 'card-padding row'
         if (!cardRowAdjusted) {
             const cardRows = document.querySelectorAll('div.card-padding.row');
+            let foundSuitableCardRowAndChildren = false; // Flag for this specific loop
             for (const candidate of cardRows) {
-                const children = candidate.querySelectorAll(':scope > div.col-lg-8.col-md-6');
+                // Selects ALL direct div children, regardless of their current classes
+                const children = candidate.querySelectorAll(':scope > div');
                 if (children.length >= 2) {
-                    children[0].className = 'col-lg-8 col-md-8';
-                    children[1].className = 'col-lg-4 col-md-4';
-                    console.log("Adjusted children in the correct cardRow");
-                    cardRowAdjusted = true;
+                    const firstColumn = children[0];
+                    const secondColumn = children[1];
+
+                    // Safely remove existing col- classes and add desired ones
+                    removeColClasses(firstColumn);
+                    firstColumn.classList.add('col-lg-8', 'col-md-8');
+
+                    removeColClasses(secondColumn);
+                    secondColumn.classList.add('col-lg-4', 'col-md-4');
+
                     console.log("[WIMS Fix] Card-padding row children adjusted.");
+                    cardRowAdjusted = true; // Set the main flag once fixed
+                    foundSuitableCardRowAndChildren = true; // Indicate success within this loop
+                    break; // Assuming only one such row needs fixing
                 }
             }
+            // Optional: You can remove this console.log if you don't need debug messages when not found
+            // if (!foundSuitableCardRowAndChildren) {
+            //     console.log("[WIMS Fix] DEBUG: Card-padding row or its children not found (yet).");
+            // }
         }
 
         // Log when all primary adjustments are complete
