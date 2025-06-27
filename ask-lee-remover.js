@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WIMS Task Page Layout Fixer
 // @namespace    http://tampermonkey.net/
-// @version      1.6 // Increment version for this fix
+// @version      1.7 // Updated version for increased retry delay and debug logs
 // @description  Hides Ask Lee widget and adjusts task page layout for better viewing.
 // @author       @camrees
 // @match        https://optimus-internal-eu.amazon.com/*
@@ -65,12 +65,25 @@
                 mainContentDiv.classList.add('main-content');
                 mainContentAdjusted = true;
                 console.log("[WIMS Fix] Main content class adjusted.");
+            } else {
+                console.log("[WIMS Fix DEBUG] 'main-content-column-small' not found yet.");
             }
         }
 
-
-
         // Adjust the first 'div.row' found that is not a 'card-padding' row
+        if (!firstRowAdjusted) {
+            const firstRowDiv = document.querySelector('div.row:not(.card-padding)');
+            if (firstRowDiv) {
+                firstRowDiv.classList.remove('row');
+                firstRowDiv.classList.add('row-null');
+                firstRowAdjusted = true;
+                console.log("[WIMS Fix] First 'div.row' adjusted.");
+            } else {
+                console.log("[WIMS Fix DEBUG] First 'div.row:not(.card-padding)' not found yet.");
+            }
+        }
+
+        // Adjust the children of the 'card-padding row'
         if (!cardRowAdjusted) {
             const cardRows = document.querySelectorAll('div.card-padding.row');
             let foundSuitableCardRowAndChildren = false; // Flag for this specific loop
@@ -98,7 +111,6 @@
                 console.log("[WIMS Fix DEBUG] 'card-padding.row' or its suitable children not found yet.");
             }
         }
-
 
         // Log when all primary adjustments are complete
         if (mainContentAdjusted && cardRowAdjusted && firstRowAdjusted) {
@@ -147,7 +159,7 @@
                             applyLayoutFixes();
                             console.log("[WIMS Fix] Retrying applyLayoutFixes after delay.");
                         }
-                    }, 100); // Small delay (100ms) to allow page to render more elements
+                    }, 300); // Increased delay to 300ms
                 }
             } else {
                 // If not on task details page, reset flags if adjustments were made
