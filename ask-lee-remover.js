@@ -1,6 +1,3 @@
-this one is working perfectly:
-
-
 
 // ==UserScript==
 
