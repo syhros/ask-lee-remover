@@ -96,7 +96,7 @@
                 console.log("[WIMS Fix DEBUG] 'card-padding.row' or its suitable children not found yet.");
             }
         }
-
+        
         // Log when all primary adjustments are complete
         if (mainContentAdjusted && cardRowAdjusted && firstRowAdjusted) {
             console.log("[WIMS Fix] All primary adjustments applied.");
