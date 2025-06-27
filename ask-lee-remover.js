@@ -130,17 +130,23 @@
     // Main observer that watches for DOM and URL changes
     function observeTaskPage() {
         observer = new MutationObserver((mutationsList, currentObserver) => {
+            let urlChanged = false;
             if (location.href !== lastUrl) {
-                console.log("[WIMS Fix] URL changed, re-initializing.");
+                console.log("[WIMS Fix] URL changed from", lastUrl, "to", location.href);
                 resetFixes();
                 lastUrl = location.href;
+                urlChanged = true;
             }
 
             hideAskLeeWidget();
 
             const taskDetail = document.querySelector('.task-details-page');
             if (taskDetail) {
-                applyLayoutFixes(); // Initial attempt to apply fixes
+                // Always try to apply fixes when on task detail page, especially after URL change
+                if (urlChanged || !(mainContentAdjusted && cardRowAdjusted && firstRowAdjusted)) {
+                    console.log("[WIMS Fix] Applying layout fixes - URL changed:", urlChanged);
+                    applyLayoutFixes();
+                }
                 monitorAssignButton();
 
                 // If not all fixes are applied, schedule a retry.
