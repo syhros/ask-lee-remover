@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WIMS Task Page Layout Fixer
 // @namespace    http://tampermonkey.net/
-// @version      1.7 // Increment version for this fix
+// @version      1.8 // Increment version for this fix
 // @description  Hides Ask Lee widget and adjusts task page layout for better viewing.
 // @author       @camrees
 // @match        https://optimus-internal-eu.amazon.com/*
@@ -81,14 +81,14 @@
 
                     // Safely remove existing col- classes and add desired ones
                     removeColClasses(firstColumn);
-                    firstColumn.classList.add('col-lg-8', 'col-md-8');
+                    firstColumn.classList.add('col-lg-8', 'col-md-6'); // Fixed: changed from col-md-8 to col-md-6
 
                     removeColClasses(secondColumn);
                     secondColumn.classList.add('col-lg-4', 'col-md-4');
 
                     cardRowAdjusted = true; // Set the main flag once fixed
                     foundSuitableCardRowAndChildren = true; // Indicate success within this loop
-                    console.log("[WIMS Fix] Card-padding row children adjusted.");
+                    console.log("[WIMS Fix] Card-padding row children adjusted - First: col-lg-8 col-md-6, Second: col-lg-4 col-md-4");
                     break; // Assuming only one such row needs fixing
                 }
             }
