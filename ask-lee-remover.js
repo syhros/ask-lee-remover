@@ -63,20 +63,28 @@
                     position: fixed !important;
                     top: 60px !important;
                     right: 20px !important;
+                    left: calc(100vw - 470px) !important;
                     z-index: 9999 !important;
                     background: white !important;
                     border: 2px solid #007dbc !important;
                     border-radius: 8px !important;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-                    max-width: 350px !important;
+                    max-width: 450px !important;
+                    width: 450px !important;
                     max-height: 80vh !important;
                     overflow: auto !important;
+                    pointer-events: auto !important;
+                }
+                
+                /* Ensure all interactive elements inside the widget work */
+                .ask-lee-widget-container.wims-overlay * {
+                    pointer-events: auto !important;
                 }
                 
                 /* Toggle button styles */
                 #wims-ask-lee-toggle {
                     position: fixed !important;
-                    top: 10px !important;
+                    bottom: 65px !important;
                     right: 20px !important;
                     z-index: 10000 !important;
                     background: #007dbc !important;
@@ -88,6 +96,7 @@
                     font-size: 14px !important;
                     font-weight: bold !important;
                     box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+                    pointer-events: auto !important;
                 }
                 
                 #wims-ask-lee-toggle:hover {
