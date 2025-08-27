@@ -33,10 +33,8 @@
         }
     }
 
-    // Resets all flags, useful when navigating between pages
-    function resetFixes() {
-        // Don't reset widgetHidden state to preserve user preference
-        toggleButtonCreated = false;
+    // Resets layout flags, useful when navigating between pages in SPA
+    function resetLayoutFixes() {
         mainContentAdjusted = false;
         cardRowAdjusted = false;
         firstRowAdjusted = false;
@@ -45,7 +43,7 @@
             clearTimeout(retryTimeoutId);
             retryTimeoutId = null;
         }
-        console.log("[WIMS Fix] Resetting flags.");
+        console.log("[WIMS Fix] Layout flags reset for new page.");
     }
 
     // Hides/shows the 'Ask Lee' widget and creates toggle button
@@ -53,13 +51,14 @@
         // Add CSS for both hiding and overlay positioning
         if (!document.getElementById('wims-ask-lee-styles')) {
             GM_addStyle(`
-                /* Default hidden state */
-                .ask-lee-widget-container.wims-hidden { 
+                /* Default hidden state - hide ALL Ask Lee widgets by default */
+                .ask-lee-widget-container { 
                     display: none !important; 
                 }
                 
                 /* Overlay state - appears above everything without affecting layout */
                 .ask-lee-widget-container.wims-overlay { 
+                    display: block !important;
                     position: fixed !important;
                     top: 60px !important;
                     right: 20px !important;
@@ -112,20 +111,20 @@
             document.head.appendChild(styleElement);
         }
 
-        // Apply the current state to the widget
-        const widget = document.querySelector('.ask-lee-widget-container');
-        if (widget) {
-            if (widgetHidden) {
-                widget.classList.add('wims-hidden');
-                widget.classList.remove('wims-overlay');
-            } else {
-                widget.classList.remove('wims-hidden');
+        // Apply the current state to the widget (find it every time since SPA may recreate it)
+        const widgets = document.querySelectorAll('.ask-lee-widget-container');
+        widgets.forEach(widget => {
+            if (!widgetHidden) {
                 widget.classList.add('wims-overlay');
+                console.log("[WIMS Fix] Widget shown in overlay mode");
+            } else {
+                widget.classList.remove('wims-overlay');
+                console.log("[WIMS Fix] Widget hidden");
             }
-        }
+        });
 
         // Create toggle button if it doesn't exist
-        if (!toggleButtonCreated && !document.getElementById('wims-ask-lee-toggle')) {
+        if (!document.getElementById('wims-ask-lee-toggle')) {
             const toggleButton = document.createElement('button');
             toggleButton.id = 'wims-ask-lee-toggle';
             toggleButton.textContent = 'Ask Lee';
@@ -135,8 +134,15 @@
                 widgetHidden = !widgetHidden;
                 console.log("[WIMS Fix] Ask Lee widget toggled:", widgetHidden ? "hidden" : "shown");
                 
-                // Apply the toggle immediately
+                // Apply the toggle immediately and trigger layout fixes
                 manageAskLeeWidget();
+                
+                // If hiding the widget, reapply layout fixes to reclaim space
+                if (widgetHidden) {
+                    setTimeout(() => {
+                        applyLayoutFixes();
+                    }, 100);
+                }
             });
             
             document.body.appendChild(toggleButton);
@@ -223,11 +229,12 @@
             let urlChanged = false;
             if (location.href !== lastUrl) {
                 console.log("[WIMS Fix] URL changed from", lastUrl, "to", location.href);
-                resetFixes();
+                resetLayoutFixes(); // Only reset layout flags, not widget state
                 lastUrl = location.href;
                 urlChanged = true;
             }
 
+            // Always manage the Ask Lee widget (this handles hiding by default)
             manageAskLeeWidget();
 
             const taskDetail = document.querySelector('.task-details-page');
@@ -254,18 +261,17 @@
                     }, 100); // Small delay (100ms) to allow page to render more elements
                 }
             } else {
-                // If not on task details page, reset flags if adjustments were made
+                // If not on task details page, reset layout flags if adjustments were made
                 if (mainContentAdjusted || cardRowAdjusted || firstRowAdjusted) {
-                    console.log("[WIMS Fix] Not on task details page, flags reset.");
-                    resetFixes();
+                    console.log("[WIMS Fix] Not on task details page, layout flags reset.");
+                    resetLayoutFixes();
                 }
             }
 
-            // Disconnect observer once layout fixes are complete (but keep the button working)
-            if (mainContentAdjusted && cardRowAdjusted && firstRowAdjusted && toggleButtonCreated) {
-                currentObserver.disconnect();
-                console.log("[WIMS Fix] All fixes applied, observer disconnected.");
-                // Clear any pending retry timeout when disconnecting
+            // Don't disconnect observer in SPA - we need to keep monitoring for page changes
+            // Just reduce the retry frequency once initial setup is done
+            if (mainContentAdjusted && cardRowAdjusted && firstRowAdjusted) {
+                // Clear any pending retry timeout once layout is fixed
                 if (retryTimeoutId) {
                     clearTimeout(retryTimeoutId);
                     retryTimeoutId = null;
