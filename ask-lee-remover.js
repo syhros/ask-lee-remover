@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         WIMS Task Page Layout Fixer
 // @namespace    http://tampermonkey.net/
-// @version      1.8 // Increment version for this fix
-// @description  Hides Ask Lee widget and adjusts task page layout for better viewing.
+// @version      1.9 // Increment version for toggle feature
+// @description  Hides Ask Lee widget and adjusts task page layout for better viewing with toggle button.
 // @author       @camrees
 // @match        https://optimus-internal-eu.amazon.com/*
 // @grant        GM_addStyle
@@ -12,7 +12,8 @@
     'use strict';
 
     // State flags to track completed adjustments
-    let widgetHidden = false;
+    let widgetHidden = true; // Default to hidden
+    let toggleButtonCreated = false;
     let mainContentAdjusted = false;
     let cardRowAdjusted = false;
     let firstRowAdjusted = false;
@@ -34,7 +35,8 @@
 
     // Resets all flags, useful when navigating between pages
     function resetFixes() {
-        widgetHidden = false;
+        // Don't reset widgetHidden state to preserve user preference
+        toggleButtonCreated = false;
         mainContentAdjusted = false;
         cardRowAdjusted = false;
         firstRowAdjusted = false;
@@ -46,12 +48,99 @@
         console.log("[WIMS Fix] Resetting flags.");
     }
 
-    // Hides the 'Ask Lee' widget using a persistent CSS rule
-    function hideAskLeeWidget() {
-        if (!widgetHidden) {
-            GM_addStyle('.ask-lee-widget-container { display: none !important; }');
-            widgetHidden = true;
-            console.log("[WIMS Fix] Ask Lee widget hidden.");
+    // Hides/shows the 'Ask Lee' widget and creates toggle button
+    function manageAskLeeWidget() {
+        // Add CSS for both hiding and overlay positioning
+        if (!document.getElementById('wims-ask-lee-styles')) {
+            GM_addStyle(`
+                /* Default hidden state */
+                .ask-lee-widget-container.wims-hidden { 
+                    display: none !important; 
+                }
+                
+                /* Overlay state - appears above everything without affecting layout */
+                .ask-lee-widget-container.wims-overlay { 
+                    position: fixed !important;
+                    top: 60px !important;
+                    right: 20px !important;
+                    z-index: 9999 !important;
+                    background: white !important;
+                    border: 2px solid #007dbc !important;
+                    border-radius: 8px !important;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+                    max-width: 350px !important;
+                    max-height: 80vh !important;
+                    overflow: auto !important;
+                }
+                
+                /* Toggle button styles */
+                #wims-ask-lee-toggle {
+                    position: fixed !important;
+                    top: 10px !important;
+                    right: 20px !important;
+                    z-index: 10000 !important;
+                    background: #007dbc !important;
+                    color: white !important;
+                    border: none !important;
+                    padding: 8px 16px !important;
+                    border-radius: 4px !important;
+                    cursor: pointer !important;
+                    font-size: 14px !important;
+                    font-weight: bold !important;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+                }
+                
+                #wims-ask-lee-toggle:hover {
+                    background: #005a8b !important;
+                    transform: translateY(-1px) !important;
+                    box-shadow: 0 3px 8px rgba(0,0,0,0.3) !important;
+                }
+            `);
+            
+            // Add an ID to prevent duplicate styles
+            const styleElement = document.createElement('style');
+            styleElement.id = 'wims-ask-lee-styles';
+            document.head.appendChild(styleElement);
+        }
+
+        // Apply the current state to the widget
+        const widget = document.querySelector('.ask-lee-widget-container');
+        if (widget) {
+            if (widgetHidden) {
+                widget.classList.add('wims-hidden');
+                widget.classList.remove('wims-overlay');
+            } else {
+                widget.classList.remove('wims-hidden');
+                widget.classList.add('wims-overlay');
+            }
+        }
+
+        // Create toggle button if it doesn't exist
+        if (!toggleButtonCreated && !document.getElementById('wims-ask-lee-toggle')) {
+            const toggleButton = document.createElement('button');
+            toggleButton.id = 'wims-ask-lee-toggle';
+            toggleButton.textContent = 'Ask Lee';
+            toggleButton.title = 'Toggle Ask Lee widget visibility';
+            
+            toggleButton.addEventListener('click', () => {
+                widgetHidden = !widgetHidden;
+                console.log("[WIMS Fix] Ask Lee widget toggled:", widgetHidden ? "hidden" : "shown");
+                
+                const widget = document.querySelector('.ask-lee-widget-container');
+                if (widget) {
+                    if (widgetHidden) {
+                        widget.classList.add('wims-hidden');
+                        widget.classList.remove('wims-overlay');
+                    } else {
+                        widget.classList.remove('wims-hidden');
+                        widget.classList.add('wims-overlay');
+                    }
+                }
+            });
+            
+            document.body.appendChild(toggleButton);
+            toggleButtonCreated = true;
+            console.log("[WIMS Fix] Ask Lee toggle button created.");
         }
     }
 
@@ -138,7 +227,7 @@
                 urlChanged = true;
             }
 
-            hideAskLeeWidget();
+            manageAskLeeWidget();
 
             const taskDetail = document.querySelector('.task-details-page');
             if (taskDetail) {
@@ -151,7 +240,7 @@
 
                 // If not all fixes are applied, schedule a retry.
                 // This ensures fixes are applied even if elements load asynchronously.
-                if (!(widgetHidden && mainContentAdjusted && cardRowAdjusted && firstRowAdjusted)) {
+                if (!(mainContentAdjusted && cardRowAdjusted && firstRowAdjusted)) {
                     if (retryTimeoutId) { // Clear existing timeout to prevent multiple concurrent retries
                         clearTimeout(retryTimeoutId);
                     }
@@ -171,16 +260,7 @@
                 }
             }
 
-            // Disconnect observer once all fixes are confirmed to save resources
-            if (widgetHidden && mainContentAdjusted && cardRowAdjusted && firstRowAdjusted) {
-                currentObserver.disconnect();
-                console.log("[WIMS Fix] All fixes applied, observer disconnected.");
-                // Ensure no more retries after disconnecting
-                if (retryTimeoutId) {
-                    clearTimeout(retryTimeoutId);
-                    retryTimeoutId = null;
-                }
-            }
+            // Note: Removed the observer disconnect logic since we now need to keep monitoring for the toggle button
         });
 
         // Observe the entire body for all DOM changes
@@ -188,7 +268,7 @@
     }
 
     // Script start
-    hideAskLeeWidget();
+    manageAskLeeWidget();
     observeTaskPage();
 
 })();
