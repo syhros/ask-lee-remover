@@ -126,16 +126,8 @@
                 widgetHidden = !widgetHidden;
                 console.log("[WIMS Fix] Ask Lee widget toggled:", widgetHidden ? "hidden" : "shown");
                 
-                const widget = document.querySelector('.ask-lee-widget-container');
-                if (widget) {
-                    if (widgetHidden) {
-                        widget.classList.add('wims-hidden');
-                        widget.classList.remove('wims-overlay');
-                    } else {
-                        widget.classList.remove('wims-hidden');
-                        widget.classList.add('wims-overlay');
-                    }
-                }
+                // Apply the toggle immediately
+                manageAskLeeWidget();
             });
             
             document.body.appendChild(toggleButton);
@@ -260,7 +252,16 @@
                 }
             }
 
-            // Note: Removed the observer disconnect logic since we now need to keep monitoring for the toggle button
+            // Disconnect observer once layout fixes are complete (but keep the button working)
+            if (mainContentAdjusted && cardRowAdjusted && firstRowAdjusted && toggleButtonCreated) {
+                currentObserver.disconnect();
+                console.log("[WIMS Fix] All fixes applied, observer disconnected.");
+                // Clear any pending retry timeout when disconnecting
+                if (retryTimeoutId) {
+                    clearTimeout(retryTimeoutId);
+                    retryTimeoutId = null;
+                }
+            }
         });
 
         // Observe the entire body for all DOM changes
